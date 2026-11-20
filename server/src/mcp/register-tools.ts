@@ -119,7 +119,7 @@ const readSharedPageContextInputSchema = z
 export const TOOL_CONFIGS = {
   open_reading_nest: {
     title: "打开 冰冰和星星的小书房",
-    description: "Use this when the user wants to open the reading nest or continue recent reading.",
+    description: "Use this when the user wants to open the reading nest or continue recent reading. It may also be called once after read_shared_page_context to place a fresh continue-reading card near the latest chat turn. If read_shared_page_context was already called in the current turn, do not call it again.",
     inputSchema: openReadingNestInputSchema,
     annotations: readOnly,
     _meta: {
@@ -133,7 +133,7 @@ export const TOOL_CONFIGS = {
   read_shared_page_context: {
     title: "共读当前书页与冰冰的想法",
     description:
-      "必须在用户要求共读当前页时调用。触发语包括：和星星共读、读这一页、刚读完第几页、看看这一页、读取我保存的想法、聊聊当前内容。即使阅读组件已经打开，也要立即调用本工具读取当前页正文和冰冰保存的想法；不要等待组件再次推送，不要声称拿不到内容。读取后直接回应冰冰的想法，不要复述或概括整页，也不要逐条转抄想法。",
+      "必须在用户要求共读当前页时调用。触发语包括：和星星共读、读这一页、刚读完第几页、看看这一页、读取我保存的想法、聊聊当前内容。即使阅读组件已经打开，也要立即调用本工具读取当前页正文和冰冰保存的想法；不要等待组件再次推送，不要声称拿不到内容。读取后，在同一轮额外调用 open_reading_nest 一次，让“继续阅读”卡片出现在最新聊天位置；本轮若已调用过 open_reading_nest 则不要重复。然后直接回应冰冰的想法，不要复述或概括整页，也不要逐条转抄想法。",
     inputSchema: readSharedPageContextInputSchema,
     annotations: readOnly
   },
@@ -386,7 +386,7 @@ export function registerReadingTools(
     return {
       ...toolResult(
         summarizeNovelBookshelfForModel(bookshelf.bookshelfSessions),
-        "已打开 冰冰和星星的小书房。完整书架只显示在阅读组件内。后续如果冰冰要求共读、讨论当前页或读取已保存的想法，必须立即调用 read_shared_page_context；不要等待阅读组件再次推送内容。"
+        "已打开 冰冰和星星的小书房。完整书架只显示在阅读组件内。后续如果冰冰要求共读、讨论当前页或读取已保存的想法，必须调用 read_shared_page_context；但如果本轮已经调用过 read_shared_page_context，就不要重复调用。"
       ),
       _meta: { privateBookshelf: bookshelf }
     };
@@ -468,8 +468,8 @@ export function registerReadingTools(
           }
         },
         savedThoughts.length
-          ? `已读取《${bundle.session.title}》当前页和 ${savedThoughts.length} 条想法。请直接回应用户的想法，不要复述正文或逐条转抄。`
-          : `已读取《${bundle.session.title}》当前页。请直接聊天，不要复述或概括整页。`
+          ? `已读取《${bundle.session.title}》当前页和 ${savedThoughts.length} 条想法。请在本轮额外调用 open_reading_nest 一次，把继续阅读卡片放到最新聊天位置；若本轮已调用则不要重复。然后直接回应用户的想法，不要复述正文或逐条转抄。`
+          : `已读取《${bundle.session.title}》当前页。请在本轮额外调用 open_reading_nest 一次，把继续阅读卡片放到最新聊天位置；若本轮已调用则不要重复。然后直接聊天，不要复述或概括整页。`
       );
     }
   );
