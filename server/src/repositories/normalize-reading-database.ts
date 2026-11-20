@@ -6,18 +6,20 @@ import {
   type ReadingDatabase,
   type ReadingRecord,
   type ReadingSession,
+  type SharedPageSnapshot,
   type SourceManifest
 } from "@ss/shared";
 
 export function normalizeReadingDatabase(input: unknown): ReadingDatabase {
   const database = migrateReadingDatabase(input);
   return {
-    schemaVersion: 5,
+    schemaVersion: 6,
     sessions: database.sessions.map(copySession),
     quotes: database.quotes.map(copyQuote),
     reactions: database.reactions.map(copyReaction),
     bookmarks: database.bookmarks.map(copyBookmark),
-    readingRecords: database.readingRecords.map(copyReadingRecord)
+    readingRecords: database.readingRecords.map(copyReadingRecord),
+    sharedPages: database.sharedPages.map(copySharedPage)
   };
 }
 
@@ -122,5 +124,17 @@ function copyReadingRecord(record: ReadingRecord): ReadingRecord {
     pagesRead: record.pagesRead,
     ...(record.operationId ? { operationId: record.operationId } : {}),
     createdAt: record.createdAt
+  };
+}
+
+function copySharedPage(page: SharedPageSnapshot): SharedPageSnapshot {
+  return {
+    sessionId: page.sessionId,
+    position: structuredClone(page.position),
+    mode: page.mode,
+    ...(page.currentText !== undefined ? { currentText: page.currentText } : {}),
+    ...(page.selectedText !== undefined ? { selectedText: page.selectedText } : {}),
+    ...(page.userNote !== undefined ? { userNote: page.userNote } : {}),
+    sharedAt: page.sharedAt
   };
 }
