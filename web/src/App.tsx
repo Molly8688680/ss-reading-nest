@@ -1310,6 +1310,9 @@ export function App() {
         sendMessage: askChatGpt,
         scrollToBottom: true
       });
+      if (hostLayout.displayMode === "inline") {
+        setReaderCollapsed(true);
+      }
       setToast("这一页和你的想法已经发给星星。你可以继续往下读。");
     } finally {
       setSyncRequestInFlight(false);
@@ -1358,6 +1361,9 @@ export function App() {
         sendMessage: askChatGpt,
         scrollToBottom: true
       });
+      if (hostLayout.displayMode === "inline") {
+        setReaderCollapsed(true);
+      }
       setToast("只把这句和你的问题发给了星星。");
     } finally {
       setSyncRequestInFlight(false);
