@@ -1275,7 +1275,8 @@ export function App() {
       savedThoughts
         ? "请先读取我刚分享的这一页和保存的想法，直接回应我的想法，再聊你最有共鸣的 1-2 个点。"
         : "请先读取我刚分享的这一页，挑最有意思的 1-3 个点自然地和我聊。",
-      "不要复述正文、逐条转抄想法，也不要概括前面的内容。"
+      "不要复述正文、逐条转抄想法，也不要概括前面的内容。",
+      "读取后请在同一轮调用 open_reading_nest 一次，把“继续阅读”卡片放到这轮最新聊天位置；如果本轮已经调用过，就不要重复调用。"
     ].join("\n");
     setSyncRequestInFlight(true);
     try {
@@ -1327,7 +1328,8 @@ export function App() {
     const prompt = [
       `【只问这一句】我在《${sessionBundle.session.title}》第 ${currentPosition.index} 页划了一句话。`,
       `我的问题：${question.trim()}`,
-      "请只围绕这句划线和这个问题回答，不要概括整页，也不要分析没有选中的内容。"
+      "请只围绕这句划线和这个问题回答，不要概括整页，也不要分析没有选中的内容。",
+      "读取后请在同一轮调用 open_reading_nest 一次，把“继续阅读”卡片放到这轮最新聊天位置；如果本轮已经调用过，就不要重复调用。"
     ].join("\n");
     setSyncRequestInFlight(true);
     try {
