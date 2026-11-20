@@ -79,13 +79,6 @@ jobs:
           fs.writeFileSync(path, updated);
           NODE
 
-      - name: Ensure private R2 bucket exists
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd server
-          pnpm exec wrangler r2 bucket create ss-reading-nest-sources >/dev/null 2>&1 || true
-
       - name: Apply D1 migrations
         shell: bash
         run: |
