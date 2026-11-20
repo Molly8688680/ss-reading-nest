@@ -432,8 +432,12 @@ export function registerReadingTools(
             : {})
         }));
 
-      let currentText: string | undefined;
-      if (cloudSourceService && bundle.session.sourceManifest?.cloudSync.enabled) {
+      const latestSharedPage = await service.getSharedPageSnapshot(
+        bundle.session.id,
+        index
+      );
+      let currentText = latestSharedPage?.currentText;
+      if (!currentText && cloudSourceService && bundle.session.sourceManifest?.cloudSync.enabled) {
         try {
           const { sourceText, sourceManifest } = await cloudSourceService.restoreNovelSource(
             bundle.session.id
@@ -449,7 +453,12 @@ export function registerReadingTools(
 
       return toolResult(
         {
-          available: Boolean(currentText || savedThoughts.length),
+          available: Boolean(
+            currentText ||
+            latestSharedPage?.selectedText ||
+            latestSharedPage?.userNote ||
+            savedThoughts.length
+          ),
           sharedPage: {
             sessionId: bundle.session.id,
             title: bundle.session.title,
@@ -458,6 +467,11 @@ export function registerReadingTools(
               index
             },
             ...(currentText ? { currentText } : {}),
+            ...(latestSharedPage?.selectedText
+              ? { selectedText: latestSharedPage.selectedText }
+              : {}),
+            ...(latestSharedPage?.userNote ? { userNote: latestSharedPage.userNote } : {}),
+            ...(latestSharedPage?.sharedAt ? { sharedAt: latestSharedPage.sharedAt } : {}),
             savedThoughts
           },
           responsePolicy: {
@@ -686,6 +700,14 @@ export function registerReadingTools(
     async (input) => {
       const { session } = await service.getSessionBundle(input.sessionId);
       const currentPosition = input.currentPosition ?? input.position!;
+      await service.saveSharedPageSnapshot({
+        sessionId: input.sessionId,
+        position: currentPosition,
+        mode: input.mode,
+        ...(input.currentText ? { currentText: input.currentText } : {}),
+        ...(input.selectedText ? { selectedText: input.selectedText } : {}),
+        ...(input.userNote ? { userNote: input.userNote } : {})
+      });
       const context = buildCurrentReadingContext(session, input);
       return toolResult(
         { context },
