@@ -8,6 +8,7 @@ import {
   type ReadingRecord,
   type ReadingSession,
   type ReadingType,
+  type SharedPageSnapshot,
   type SourceManifest,
   type SessionPreferences,
   type SessionStatus
@@ -73,6 +74,20 @@ interface RepairableV5Database extends Omit<RepairableV4Database, "schemaVersion
   readingRecords?: ReadingRecord[];
 }
 
+interface NormalizedV5Database {
+  schemaVersion: 5;
+  sessions: ReadingSession[];
+  quotes: Quote[];
+  reactions: Reaction[];
+  bookmarks: Bookmark[];
+  readingRecords: ReadingRecord[];
+}
+
+interface RepairableV6Database extends Omit<RepairableV5Database, "schemaVersion"> {
+  schemaVersion: 6;
+  sharedPages?: SharedPageSnapshot[];
+}
+
 type RepairableSourceManifest = Omit<SourceManifest, "cloudSync"> & {
   cloudSync?: SourceManifest["cloudSync"];
 };
@@ -86,14 +101,25 @@ export function migrateReadingDatabase(input: unknown): ReadingDatabase {
   assertDatabaseCollections(input);
   const version = (input as { schemaVersion?: unknown }).schemaVersion;
   if (version === 1) {
-    return migrateV4ToV5(
-      migrateV3ToV4(migrateV2ToV3(migrateV1ToV2(input as V1Database)))
+    return migrateV5ToV6(
+      migrateV4ToV5(
+        migrateV3ToV4(migrateV2ToV3(migrateV1ToV2(input as V1Database)))
+      )
     );
   }
-  if (version === 2) return migrateV4ToV5(migrateV3ToV4(migrateV2ToV3(input as V2Database)));
-  if (version === 3) return migrateV4ToV5(migrateV3ToV4(normalizeV3(input as RepairableV3Database)));
-  if (version === 4) return migrateV4ToV5(normalizeV4(input as RepairableV4Database));
-  if (version === 5) return normalizeV5(input as RepairableV5Database);
+  if (version === 2) {
+    return migrateV5ToV6(migrateV4ToV5(migrateV3ToV4(migrateV2ToV3(input as V2Database))));
+  }
+  if (version === 3) {
+    return migrateV5ToV6(
+      migrateV4ToV5(migrateV3ToV4(normalizeV3(input as RepairableV3Database)))
+    );
+  }
+  if (version === 4) {
+    return migrateV5ToV6(migrateV4ToV5(normalizeV4(input as RepairableV4Database)));
+  }
+  if (version === 5) return migrateV5ToV6(normalizeV5(input as RepairableV5Database));
+  if (version === 6) return normalizeV6(input as RepairableV6Database);
   throw new Error("Unsupported schemaVersion");
 }
 
@@ -167,7 +193,9 @@ function normalizeV4(database: RepairableV4Database): NormalizedV4Database {
   };
 }
 
-function migrateV4ToV5(database: RepairableV4Database | NormalizedV4Database): ReadingDatabase {
+function migrateV4ToV5(
+  database: RepairableV4Database | NormalizedV4Database
+): NormalizedV5Database {
   return normalizeV5({
     ...database,
     schemaVersion: 5,
@@ -175,7 +203,7 @@ function migrateV4ToV5(database: RepairableV4Database | NormalizedV4Database): R
   });
 }
 
-function normalizeV5(database: RepairableV5Database): ReadingDatabase {
+function normalizeV5(database: RepairableV5Database): NormalizedV5Database {
   const normalizedV4 = normalizeV4({
     ...database,
     schemaVersion: 4
@@ -187,12 +215,33 @@ function normalizeV5(database: RepairableV5Database): ReadingDatabase {
   };
 }
 
+function migrateV5ToV6(database: NormalizedV5Database): ReadingDatabase {
+  return {
+    ...database,
+    schemaVersion: 6,
+    sharedPages: []
+  };
+}
+
+function normalizeV6(database: RepairableV6Database): ReadingDatabase {
+  const normalizedV5 = normalizeV5({
+    ...database,
+    schemaVersion: 5
+  });
+  return {
+    ...normalizedV5,
+    schemaVersion: 6,
+    sharedPages: normalizeSharedPages(database.sharedPages)
+  };
+}
+
 function assertDatabaseCollections(input: unknown): asserts input is
   | V1Database
   | V2Database
   | RepairableV3Database
   | RepairableV4Database
-  | RepairableV5Database {
+  | RepairableV5Database
+  | RepairableV6Database {
   if (!input || typeof input !== "object") throw new Error("Unsupported data shape");
   const value = input as Record<string, unknown>;
   if (
@@ -269,4 +318,29 @@ function normalizeReadingRecords(records: ReadingRecord[] | undefined): ReadingR
     ...(record.operationId ? { operationId: record.operationId } : {}),
     createdAt: record.createdAt
   }));
+}
+
+function normalizeSharedPages(pages: SharedPageSnapshot[] | undefined): SharedPageSnapshot[] {
+  if (!Array.isArray(pages)) return [];
+  return pages
+    .filter(
+      (page) =>
+        page &&
+        typeof page.sessionId === "string" &&
+        page.sessionId.length > 0 &&
+        page.position &&
+        page.position.kind === "paragraph" &&
+        Number.isInteger(page.position.index) &&
+        page.position.index > 0 &&
+        typeof page.sharedAt === "string"
+    )
+    .map((page) => ({
+      sessionId: page.sessionId,
+      position: structuredClone(page.position),
+      mode: page.mode,
+      ...(page.currentText ? { currentText: page.currentText.slice(0, 20_000) } : {}),
+      ...(page.selectedText ? { selectedText: page.selectedText.slice(0, 10_000) } : {}),
+      ...(page.userNote ? { userNote: page.userNote.slice(0, 4_000) } : {}),
+      sharedAt: page.sharedAt
+    }));
 }
