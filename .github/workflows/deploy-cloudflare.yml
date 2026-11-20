@@ -7,6 +7,7 @@ on:
       - main
     paths:
       - ".github/workflows/deploy-cloudflare.yml"
+      - "server/wrangler.jsonc"
 
 permissions:
   contents: read
