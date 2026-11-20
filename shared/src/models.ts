@@ -162,13 +162,24 @@ export interface ReadingRecord {
   createdAt: string;
 }
 
+export interface SharedPageSnapshot {
+  sessionId: string;
+  position: ReadingPosition;
+  mode: ReadingSyncMode;
+  currentText?: string;
+  selectedText?: string;
+  userNote?: string;
+  sharedAt: string;
+}
+
 export interface ReadingDatabase {
-  schemaVersion: 5;
+  schemaVersion: 6;
   sessions: ReadingSession[];
   quotes: Quote[];
   reactions: Reaction[];
   bookmarks: Bookmark[];
   readingRecords: ReadingRecord[];
+  sharedPages: SharedPageSnapshot[];
 }
 
 export type ReadingSyncMode =

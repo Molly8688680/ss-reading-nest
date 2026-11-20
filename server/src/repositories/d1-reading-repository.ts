@@ -27,12 +27,13 @@ type StateRow = {
 };
 
 const emptyDatabase = (): ReadingDatabase => ({
-  schemaVersion: 5,
+  schemaVersion: 6,
   sessions: [],
   quotes: [],
   reactions: [],
   bookmarks: [],
-  readingRecords: []
+  readingRecords: [],
+  sharedPages: []
 });
 
 const MAX_WRITE_ATTEMPTS = 8;

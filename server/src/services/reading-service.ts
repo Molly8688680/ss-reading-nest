@@ -7,6 +7,8 @@ import type {
   ReadingPosition,
   ReadingRecord,
   ReadingSession,
+  ReadingSyncMode,
+  SharedPageSnapshot,
   SaveReadingRecordInput,
   SessionBundle,
   SessionPreferences,
@@ -128,6 +130,48 @@ export class ReadingService {
       reactions: database.reactions.filter((reaction) => reaction.sessionId === sessionId),
       bookmarks: database.bookmarks.filter((bookmark) => bookmark.sessionId === sessionId)
     };
+  }
+
+  async saveSharedPageSnapshot(input: {
+    sessionId: string;
+    position: ReadingPosition;
+    mode: ReadingSyncMode;
+    currentText?: string;
+    selectedText?: string;
+    userNote?: string;
+  }): Promise<SharedPageSnapshot> {
+    return this.repository.mutate((database) => {
+      this.requireSession(database.sessions, input.sessionId);
+      const snapshot: SharedPageSnapshot = {
+        sessionId: input.sessionId,
+        position: structuredClone(input.position),
+        mode: input.mode,
+        ...(input.currentText ? { currentText: input.currentText.slice(0, 20_000) } : {}),
+        ...(input.selectedText ? { selectedText: input.selectedText.slice(0, 10_000) } : {}),
+        ...(input.userNote ? { userNote: input.userNote.slice(0, 4_000) } : {}),
+        sharedAt: this.deps.now().toISOString()
+      };
+      database.sharedPages = database.sharedPages.filter(
+        (item) => item.sessionId !== input.sessionId
+      );
+      database.sharedPages.push(snapshot);
+      return snapshot;
+    });
+  }
+
+  async getSharedPageSnapshot(
+    sessionId: string,
+    positionIndex?: number
+  ): Promise<SharedPageSnapshot | undefined> {
+    const database = await this.repository.read();
+    this.requireSession(database.sessions, sessionId);
+    const candidates = database.sharedPages.filter(
+      (item) =>
+        item.sessionId === sessionId &&
+        (positionIndex === undefined || item.position.index === positionIndex)
+    );
+    const snapshot = candidates.sort((a, b) => b.sharedAt.localeCompare(a.sharedAt))[0];
+    return snapshot ? structuredClone(snapshot) : undefined;
   }
 
   async updateUserPosition(
@@ -517,6 +561,9 @@ export class ReadingService {
       database.reactions = database.reactions.filter((item) => item.sessionId !== sessionId);
       database.bookmarks = database.bookmarks.filter((item) => item.sessionId !== sessionId);
       database.readingRecords = database.readingRecords.filter(
+        (item) => item.sessionId !== sessionId
+      );
+      database.sharedPages = database.sharedPages.filter(
         (item) => item.sessionId !== sessionId
       );
       return {
